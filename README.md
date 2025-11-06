@@ -1,9 +1,8 @@
 Meme Generator
 ==============
 
-Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
-The script gathers Reddit threads, extracts text, images, and videos, then lays out
-captions, avatars, subtitles, and motion layers for a finished Instagram Reel or TikTok.
+Automatically turns Reddit threads into vertical short-form videos by collecting text, images, and clips, then composing captions, avatars, subtitles, and motion graphics into a ready-to-post Instagram Reel or TikTok.
+
 Rendering one clip takes about two seconds on a modern workstation, so large batches of
 Reddit-proven content can be produced quickly.
 
@@ -15,9 +14,8 @@ Reddit-proven content can be produced quickly.
 
 Goal
 ----
-Convert public Reddit content into vertical clips with little manual work.
-Each run reads a post, builds the timeline, and exports a file that is ready
-for Instagram, TikTok, or YouTube Shorts.
+Convert successful public Reddit content into Vertical clips with little manual work.
+Each run reads a post, builds the timeline, and exports a file that is ready for Instagram, TikTok, or YouTube Shorts.
 
 Results
 -------
@@ -57,7 +55,7 @@ Quick Start
 
 Credits
 -------
-**Project Lead**
+**Project Developer**
 - Artie Hinz - [GitHub](https://github.com/artiehinz) · [artiehinz.com](https://artiehinz.com/)
 
 **Open Source Toolkit**
