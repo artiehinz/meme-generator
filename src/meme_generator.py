@@ -277,21 +277,39 @@ def is_nsfw_keras(image_path, model, threshold=0.5):
 
 
 def ensure_nsfw_model():
-    """Download the NSFW model if a URL is provided and the file is missing."""
-    model_url = os.getenv("NSFW_MODEL_URL")
-    if NSFW_MODEL_PATH.exists() or not model_url:
+    """Ensure the NSFW model is present locally (download if necessary)."""
+    if NSFW_MODEL_PATH.exists():
         return
-    print(f"[INFO] Downloading NSFW model from {model_url}...")
-    NSFW_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
-    response = requests.get(model_url, timeout=120, stream=True)
-    response.raise_for_status()
-    temp_path = NSFW_MODEL_PATH.with_suffix(".tmp")
-    with open(temp_path, "wb") as fh:
-        for chunk in response.iter_content(chunk_size=1024 * 1024):
-            if chunk:
-                fh.write(chunk)
-    temp_path.replace(NSFW_MODEL_PATH)
-    print(f"[INFO] NSFW model downloaded to {NSFW_MODEL_PATH}")
+
+    preferred_url = os.getenv("NSFW_MODEL_URL")
+    candidate_urls = [preferred_url, "https://storage.googleapis.com/nsfw_model/nsfw.299x299.h5"]
+    tried_urls = []
+
+    for url in [u for u in candidate_urls if u]:
+        tried_urls.append(url)
+        try:
+            print(f"[INFO] Downloading NSFW model from {url}...")
+            NSFW_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+            response = requests.get(url, timeout=120, stream=True)
+            response.raise_for_status()
+            temp_path = NSFW_MODEL_PATH.with_suffix(".tmp")
+            with open(temp_path, "wb") as fh:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        fh.write(chunk)
+            temp_path.replace(NSFW_MODEL_PATH)
+            print(f"[INFO] NSFW model downloaded to {NSFW_MODEL_PATH}")
+            return
+        except requests.HTTPError as http_err:
+            print(f"[WARN] Failed to download NSFW model from {url}: {http_err}")
+        except Exception as err:
+            print(f"[WARN] Error downloading NSFW model from {url}: {err}")
+
+    if tried_urls:
+        print(f"[INFO] Unable to download NSFW model after trying: {', '.join(tried_urls)}")
+    else:
+        print("[INFO] No NSFW model URL provided; skipping download.")
+    print("[INFO] Continuing without NSFW filtering. Place nsfw.299x299.h5 in assets/models/ to re-enable.")
 
 
 # Load NSFW model once

@@ -28,7 +28,7 @@ Quick Start
 -----------
 1. `pip install -r requirements.txt`
 2. Copy `.env.example` -> `.env`, add Reddit credentials, and point to FFmpeg/ImageMagick/Tesseract if needed.
-   - Drop `assets/models/nsfw.299x299.h5` in place or provide a working `NSFW_MODEL_URL`.
+   - Drop `assets/models/nsfw.299x299.h5` in place or provide a working `NSFW_MODEL_URL`. The script falls back to `https://storage.googleapis.com/nsfw_model/nsfw.299x299.h5` if your value fails.
 3. Populate the folders under `assets/` with your own media (see `assets/README.md` for guidance).
 4. Run `python src/meme_generator.py`.
 
