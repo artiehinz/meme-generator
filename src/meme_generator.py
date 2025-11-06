@@ -66,7 +66,6 @@ _try_import_tensorflow()
 ROOT_DIR = Path(__file__).resolve().parent.parent
 ASSETS_DIR = ROOT_DIR / "assets"
 OUTPUT_DIR = ROOT_DIR / "output"
-DOWNLOADS_DIR = OUTPUT_DIR / "reddit_downloads"
 
 load_dotenv(ROOT_DIR / ".env")
 
@@ -117,7 +116,7 @@ def _safe_wm_folder(name: str, fallback: str) -> str:
     return f"_{safe}"
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
-daily_folder = DOWNLOADS_DIR / today
+daily_folder = OUTPUT_DIR / today
 images_folder = daily_folder / "images"
 videos_folder = daily_folder / "videos"
 BANNED_FOLDER = daily_folder / "banned_images"
@@ -130,7 +129,6 @@ metadata_file_path = daily_folder / "metadata.txt"
 # Create necessary directories
 core_directories = [
     OUTPUT_DIR,
-    DOWNLOADS_DIR,
     daily_folder,
     images_folder,
     videos_folder,
@@ -959,9 +957,9 @@ def process_reddit_images():
                 if img_path:
                     current_hash = compute_md5(img_path)
                     duplicate = False
-                    for d in os.listdir(str(DOWNLOADS_DIR)):
-                        if d != today and (DOWNLOADS_DIR / d / "images").is_dir():
-                            images_dir = DOWNLOADS_DIR / d / "images"
+                    for d in os.listdir(str(OUTPUT_DIR)):
+                        if d != today and (OUTPUT_DIR / d / "images").is_dir():
+                            images_dir = OUTPUT_DIR / d / "images"
                             for file in os.listdir(str(images_dir)):
                                 full_path = images_dir / file
                                 if full_path.is_file() and compute_md5(full_path) == current_hash:
@@ -1002,9 +1000,9 @@ def process_reddit_images():
                 if img_path:
                     current_hash = compute_md5(img_path)
                     duplicate = False
-                    for d in os.listdir(str(DOWNLOADS_DIR)):
-                        if d != today and (DOWNLOADS_DIR / d / "images").is_dir():
-                            images_dir = DOWNLOADS_DIR / d / "images"
+                    for d in os.listdir(str(OUTPUT_DIR)):
+                        if d != today and (OUTPUT_DIR / d / "images").is_dir():
+                            images_dir = OUTPUT_DIR / d / "images"
                             for file in os.listdir(str(images_dir)):
                                 full_path = images_dir / file
                                 if full_path.is_file() and compute_md5(full_path) == current_hash:
@@ -1050,21 +1048,16 @@ def process_reddit_videos():
                 if vid_path:
                     current_hash = compute_md5(vid_path)
                     duplicate = False
-                    for d in os.listdir(str(DOWNLOADS_DIR)):
-                        if d != today and (DOWNLOADS_DIR / d).is_dir():
-                            day_folder = DOWNLOADS_DIR / d
-                            for wm in ["_refgotglaucoma", "_refgotbrainlag"]:
-                                wm_dir = day_folder / wm
-                                if wm_dir.is_dir():
-                                    for file in os.listdir(str(wm_dir)):
-                                        full_path = wm_dir / file
-                                        if full_path.is_file() and compute_md5(full_path) == current_hash:
-                                            duplicate = True
-                                            break
-                                    if duplicate:
-                                        break
-                        if duplicate:
-                            break
+                    for d in os.listdir(str(OUTPUT_DIR)):
+                        if d != today and (OUTPUT_DIR / d / variant_folder_name).is_dir():
+                            wm_dir = OUTPUT_DIR / d / variant_folder_name
+                            for file in os.listdir(str(wm_dir)):
+                                full_path = wm_dir / file
+                                if full_path.is_file() and compute_md5(full_path) == current_hash:
+                                    duplicate = True
+                                    break
+                            if duplicate:
+                                break
                     if duplicate:
                         print(f"[INFO] Video {vid_path} was already downloaded previously. Skipping processing.")
                         continue
@@ -1098,21 +1091,16 @@ def process_reddit_videos():
                 if vid_path:
                     current_hash = compute_md5(vid_path)
                     duplicate = False
-                    for d in os.listdir(str(DOWNLOADS_DIR)):
-                        if d != today and (DOWNLOADS_DIR / d).is_dir():
-                            day_folder = DOWNLOADS_DIR / d
-                            for wm in ["_refgotglaucoma", "_refgotbrainlag"]:
-                                wm_dir = day_folder / wm
-                                if wm_dir.is_dir():
-                                    for file in os.listdir(str(wm_dir)):
-                                        full_path = wm_dir / file
-                                        if full_path.is_file() and compute_md5(full_path) == current_hash:
-                                            duplicate = True
-                                            break
-                                    if duplicate:
-                                        break
-                        if duplicate:
-                            break
+                    for d in os.listdir(str(OUTPUT_DIR)):
+                        if d != today and (OUTPUT_DIR / d / variant_folder_name).is_dir():
+                            wm_dir = OUTPUT_DIR / d / variant_folder_name
+                            for file in os.listdir(str(wm_dir)):
+                                full_path = wm_dir / file
+                                if full_path.is_file() and compute_md5(full_path) == current_hash:
+                                    duplicate = True
+                                    break
+                            if duplicate:
+                                break
                     if duplicate:
                         print(f"[INFO] Video {vid_path} was already downloaded previously. Skipping processing.")
                         continue
