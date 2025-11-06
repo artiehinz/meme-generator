@@ -105,15 +105,16 @@ COLOR_FRAME_ANIMATION_PATH = ASSETS_DIR / "particles" / "color_frame_animation.m
 LUT_FOLDER = ASSETS_DIR / "luts"
 EMOJI_FOLDER = ASSETS_DIR / "emoji"
 
-# Watermark texts and folders for output videos
-watermark_text1 = os.getenv("WATERMARK_PRIMARY", "@yourwatermark")
-watermark_text2 = os.getenv("WATERMARK_SECONDARY", "@yourwatermark_alt")
+# Watermark text choices and output folder
+_watermark_candidates = [
+    os.getenv("WATERMARK_PRIMARY", "@refgotglaucoma"),
+    os.getenv("WATERMARK_SECONDARY")
+]
+WATERMARK_CHOICES = [w for w in _watermark_candidates if w]
+if not WATERMARK_CHOICES:
+    WATERMARK_CHOICES = ["@refgotglaucoma"]
 
-
-def _safe_wm_folder(name: str, fallback: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", name or "")
-    safe = safe.strip("_") or fallback
-    return f"_{safe}"
+OUTPUT_VARIANT_FOLDER = os.getenv("OUTPUT_SUBFOLDER", "rendered")
 
 today = datetime.datetime.now().strftime("%Y-%m-%d")
 daily_folder = OUTPUT_DIR / today
@@ -122,8 +123,7 @@ videos_folder = daily_folder / "videos"
 BANNED_FOLDER = daily_folder / "banned_images"
 BANNED_NSFW_FOLDER = BANNED_FOLDER / "nsfw_banned"
 
-wm1_folder = daily_folder / _safe_wm_folder(watermark_text1, "primary")
-wm2_folder = daily_folder / _safe_wm_folder(watermark_text2, "secondary")
+variant_folder = daily_folder / OUTPUT_VARIANT_FOLDER
 metadata_file_path = daily_folder / "metadata.txt"
 
 # Create necessary directories
@@ -134,8 +134,7 @@ core_directories = [
     videos_folder,
     BANNED_FOLDER,
     BANNED_NSFW_FOLDER,
-    wm1_folder,
-    wm2_folder,
+    variant_folder,
     ASSETS_DIR,
 ]
 
@@ -970,8 +969,8 @@ def process_reddit_images():
                     if duplicate:
                         print(f"[INFO] Image {img_path} was already downloaded previously. Skipping video creation.")
                         continue
-                    chosen_watermark = random.choice([watermark_text1, watermark_text2])
-                    out_folder = wm1_folder if chosen_watermark == watermark_text1 else wm2_folder
+                    chosen_watermark = random.choice(WATERMARK_CHOICES)
+                    out_folder = variant_folder
                     out_path = out_folder / f"{post.id}_hot.mp4"
                     if not out_path.exists():
                         convert_image_to_video_ffmpeg(img_path, str(out_path), post.title, video_counter, chosen_watermark)
@@ -1013,8 +1012,8 @@ def process_reddit_images():
                     if duplicate:
                         print(f"[INFO] Image {img_path} was already downloaded previously. Skipping video creation.")
                         continue
-                    chosen_watermark = random.choice([watermark_text1, watermark_text2])
-                    out_folder = wm1_folder if chosen_watermark == watermark_text1 else wm2_folder
+                    chosen_watermark = random.choice(WATERMARK_CHOICES)
+                    out_folder = variant_folder
                     out_path = out_folder / f"{post.id}_month.mp4"
                     if not out_path.exists():
                         convert_image_to_video_ffmpeg(img_path, str(out_path), post.title, video_counter, chosen_watermark)
@@ -1049,8 +1048,8 @@ def process_reddit_videos():
                     current_hash = compute_md5(vid_path)
                     duplicate = False
                     for d in os.listdir(str(OUTPUT_DIR)):
-                        if d != today and (OUTPUT_DIR / d / variant_folder_name).is_dir():
-                            wm_dir = OUTPUT_DIR / d / variant_folder_name
+                        if d != today and (OUTPUT_DIR / d / OUTPUT_VARIANT_FOLDER).is_dir():
+                            wm_dir = OUTPUT_DIR / d / OUTPUT_VARIANT_FOLDER
                             for file in os.listdir(str(wm_dir)):
                                 full_path = wm_dir / file
                                 if full_path.is_file() and compute_md5(full_path) == current_hash:
@@ -1061,8 +1060,8 @@ def process_reddit_videos():
                     if duplicate:
                         print(f"[INFO] Video {vid_path} was already downloaded previously. Skipping processing.")
                         continue
-                    chosen_watermark = random.choice([watermark_text1, watermark_text2])
-                    out_folder = wm1_folder if chosen_watermark == watermark_text1 else wm2_folder
+                    chosen_watermark = random.choice(WATERMARK_CHOICES)
+                    out_folder = variant_folder
                     out_path = out_folder / f"{post.id}_hot.mp4"
                     if not out_path.exists():
                         convert_video_to_video_ffmpeg(vid_path, str(out_path), post.title, video_counter, chosen_watermark)
@@ -1092,8 +1091,8 @@ def process_reddit_videos():
                     current_hash = compute_md5(vid_path)
                     duplicate = False
                     for d in os.listdir(str(OUTPUT_DIR)):
-                        if d != today and (OUTPUT_DIR / d / variant_folder_name).is_dir():
-                            wm_dir = OUTPUT_DIR / d / variant_folder_name
+                        if d != today and (OUTPUT_DIR / d / OUTPUT_VARIANT_FOLDER).is_dir():
+                            wm_dir = OUTPUT_DIR / d / OUTPUT_VARIANT_FOLDER
                             for file in os.listdir(str(wm_dir)):
                                 full_path = wm_dir / file
                                 if full_path.is_file() and compute_md5(full_path) == current_hash:
@@ -1104,8 +1103,8 @@ def process_reddit_videos():
                     if duplicate:
                         print(f"[INFO] Video {vid_path} was already downloaded previously. Skipping processing.")
                         continue
-                    chosen_watermark = random.choice([watermark_text1, watermark_text2])
-                    out_folder = wm1_folder if chosen_watermark == watermark_text1 else wm2_folder
+                    chosen_watermark = random.choice(WATERMARK_CHOICES)
+                    out_folder = variant_folder
                     out_path = out_folder / f"{post.id}_month.mp4"
                     if not out_path.exists():
                         convert_video_to_video_ffmpeg(vid_path, str(out_path), post.title, video_counter, chosen_watermark)
@@ -1125,27 +1124,26 @@ def process_reddit_videos():
                         print(f"[ERROR] Square video {square_out_path} not found; skipping H264 re-encoding.")
 
 def cleanup_square_folders():
-    for profile_folder in [wm1_folder, wm2_folder]:
-        square_folder = profile_folder / "square"
-        h264_folder = square_folder / "h264"
-        if square_folder.is_dir():
-            for item in os.listdir(str(square_folder)):
-                full_path = square_folder / item
-                if full_path.is_file():
-                    os.remove(full_path)
-                    print(f"[CLEANUP] Deleted file: {full_path}")
-                elif full_path.is_dir() and full_path.name != "h264":
-                    shutil.rmtree(full_path)
-                    print(f"[CLEANUP] Deleted directory: {full_path}")
-            if h264_folder.is_dir():
-                for item in os.listdir(str(h264_folder)):
-                    src = h264_folder / item
-                    dest = square_folder / item
-                    shutil.move(str(src), str(dest))
-                    print(f"[CLEANUP] Moved {src} to {dest}")
-                if not os.listdir(str(h264_folder)):
-                    os.rmdir(str(h264_folder))
-                    print(f"[CLEANUP] Deleted empty h264 folder: {h264_folder}")
+    square_folder = variant_folder / "square"
+    h264_folder = square_folder / "h264"
+    if square_folder.is_dir():
+        for item in os.listdir(str(square_folder)):
+            full_path = square_folder / item
+            if full_path.is_file():
+                os.remove(full_path)
+                print(f"[CLEANUP] Deleted file: {full_path}")
+            elif full_path.is_dir() and full_path.name != "h264":
+                shutil.rmtree(full_path)
+                print(f"[CLEANUP] Deleted directory: {full_path}")
+        if h264_folder.is_dir():
+            for item in os.listdir(str(h264_folder)):
+                src = h264_folder / item
+                dest = square_folder / item
+                shutil.move(str(src), str(dest))
+                print(f"[CLEANUP] Moved {src} to {dest}")
+            if not os.listdir(str(h264_folder)):
+                os.rmdir(str(h264_folder))
+                print(f"[CLEANUP] Deleted empty h264 folder: {h264_folder}")
 
 #############################
 # MAIN EXECUTION
@@ -1163,65 +1161,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-import os
-import shutil
-import datetime
-import random
-import re
-import string
-import hashlib
-import importlib
-from pathlib import Path
-from typing import Any, Optional
-
-import requests
-import ffmpeg
-from moviepy.editor import CompositeVideoClip, ImageClip, TextClip
-import moviepy.config as mpy_config
-import cv2
-from PIL import Image, ImageDraw, ImageFont
-import pytesseract
-from dotenv import load_dotenv
-
-tf: Optional[Any] = None
-load_model: Optional[Any] = None
-load_img: Optional[Any] = None
-img_to_array: Optional[Any] = None
-KerasLayer: Optional[Any] = None
-
-
-def _try_import_tensorflow() -> None:
-    """Best-effort import of TensorFlow components without hard dependency."""
-    global tf, load_model, load_img, img_to_array, KerasLayer
-
-    try:
-        tf = importlib.import_module("tensorflow")
-    except ModuleNotFoundError:
-        tf = None
-        return
-
-    try:
-        keras_models = importlib.import_module("tensorflow.keras.models")
-        load_model = getattr(keras_models, "load_model", None)
-    except ModuleNotFoundError:
-        load_model = None
-
-    try:
-        preprocessing = importlib.import_module("tensorflow.keras.preprocessing.image")
-        load_img = getattr(preprocessing, "load_img", None)
-        img_to_array = getattr(preprocessing, "img_to_array", None)
-    except ModuleNotFoundError:
-        load_img = None
-        img_to_array = None
-
-    try:
-        hub = importlib.import_module("tensorflow_hub")
-        KerasLayer = getattr(hub, "KerasLayer", None)
-    except ModuleNotFoundError:
-        KerasLayer = None
-
-
-_try_import_tensorflow()
 import os
 import shutil
 import datetime
