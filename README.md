@@ -12,6 +12,7 @@ Automate the formatting and rendering of high-performing, publicly available Red
 Results
 -------
 The automation pipeline allowed dozens of clips to be produced per day. Once scheduled, the edits consistently attracted millions of impressions and multiple viral hits. The workflow now powers an internal marketing branch as a reusable content engine.
+![Views](blob:https://portfolio.adobe.com/673665c8-eab5-4601-a2e1-e3a7f6f6d607)
 
 Features
 --------
