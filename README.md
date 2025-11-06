@@ -31,6 +31,13 @@ Customization
 -------------
 All layers -- backgrounds, overlays, LUTs, emoji, audio beds, and watermarks -- are user-supplied. Swap branding kits, typography, or animation packs in `assets/` to tailor the output for any campaign or company style guide.
 
+Large Assets & LFS
+------------------
+Binary media (`*.mp4`, `*.mov`, `*.mp3`) is tracked through Git LFS so you
+can safely keep huge renders out of regular Git history. The `assets/`
+subfolders themselves only contain `.gitkeep` placeholders; drop your own
+media locally before running the generator.
+
 Quick Start
 -----------
 1. `pip install -r requirements.txt`
