@@ -1,0 +1,11 @@
+﻿python-dotenv>=1.0
+praw>=7.7
+requests>=2.31
+ffmpeg-python>=0.2
+moviepy>=1.0
+opencv-python>=4.9
+Pillow>=10.0
+pytesseract>=0.3
+numpy>=1.26
+tensorflow>=2.13,<3.0
+tensorflow-hub>=0.15
