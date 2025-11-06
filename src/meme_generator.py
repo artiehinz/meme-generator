@@ -101,6 +101,7 @@ BADWORDS_FILE = ASSETS_DIR / "badwords.txt"
 FONT_PATH = ASSETS_DIR / "fonts" / "Roboto-Black.ttf"
 
 _FONT_WARNING_LOGGED = False
+WINDOWS_DEFAULT_FONT = Path(os.getenv("SYSTEMROOT", r"C:\Windows")) / "Fonts" / "Arial.ttf"
 
 
 def _font_available() -> bool:
@@ -120,6 +121,13 @@ def _font_warning():
 def resolve_moviepy_font() -> str:
     if _font_available():
         return str(FONT_PATH)
+    fallback_font = os.getenv("DEFAULT_SYSTEM_FONT")
+    if fallback_font and Path(fallback_font).exists():
+        _font_warning()
+        return fallback_font
+    if WINDOWS_DEFAULT_FONT.exists():
+        _font_warning()
+        return str(WINDOWS_DEFAULT_FONT)
     _font_warning()
     return "Arial-Bold"
 
@@ -130,6 +138,16 @@ def resolve_pillow_font(size: int) -> ImageFont.FreeTypeFont:
             return ImageFont.truetype(str(FONT_PATH), size)
         except OSError:
             pass
+    fallback_font = os.getenv("DEFAULT_SYSTEM_FONT")
+    try:
+        if fallback_font and Path(fallback_font).exists():
+            _font_warning()
+            return ImageFont.truetype(str(fallback_font), size)
+        if WINDOWS_DEFAULT_FONT.exists():
+            _font_warning()
+            return ImageFont.truetype(str(WINDOWS_DEFAULT_FONT), size)
+    except OSError:
+        pass
     _font_warning()
     return ImageFont.load_default()
 
@@ -139,7 +157,13 @@ def apply_drawtext(node, **kwargs):
     if _font_available():
         args.setdefault("fontfile", str(FONT_PATH))
     else:
-        args.pop("fontfile", None)
+        fallback_font = os.getenv("DEFAULT_SYSTEM_FONT")
+        if fallback_font and Path(fallback_font).exists():
+            args.setdefault("fontfile", fallback_font)
+        elif WINDOWS_DEFAULT_FONT.exists():
+            args.setdefault("fontfile", str(WINDOWS_DEFAULT_FONT))
+        else:
+            args.pop("fontfile", None)
         _font_warning()
     return node.filter("drawtext", **args)
 NSFW_MODEL_PATH = ASSETS_DIR / "models" / "nsfw.299x299.h5"
