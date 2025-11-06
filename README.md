@@ -4,8 +4,9 @@
 Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
 
 ![input-to-rendered](docs/media/input-to-rendered.gif)
-https://www.reddit.com/r/teenagers/comments/1e642tw/what_the_states_look_to_me_as_german/ - original Reddit Post 
-https://www.instagram.com/reel/DHEiVjbTS3_ - rendered Instagram Reel
+[original Reddit Post](https://www.reddit.com/r/teenagers/comments/1e642tw/what_the_states_look_to_me_as_german/)
+[rendered Instagram Reel](https://www.instagram.com/reel/DHEiVjbTS3_)
+
 
 Goal
 ----
