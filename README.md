@@ -1,7 +1,9 @@
-﻿Meme Generator
+Meme Generator
 ==============
 
 Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
+The script collects Reddit threads, extracts text and images, then lays out
+captions, avatars, subtitles, and motion layers for a finished Instagram Reel or TikTok.
 
 ![input-to-rendered](docs/media/input-to-rendered.gif)
 [Original Reddit Post](https://www.reddit.com/r/teenagers/comments/1e642tw/what_the_states_look_to_me_as_german/)
@@ -11,53 +13,59 @@ Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
 
 Goal
 ----
-Automate the formatting and rendering of high-performing, publicly available Reddit posts into animated vertical stories suitable for Instagram, TikTok, and similar channels -- turning static threads into branded video content with minimal manual effort.
+Convert public Reddit content into vertical clips with little manual work.
+Each run reads a post, builds the timeline, and exports a file that is ready
+for Instagram, TikTok, or YouTube Shorts.
 
 Results
 -------
-The automation pipeline allowed dozens of clips to be produced per day. Once scheduled, the edits consistently attracted millions of impressions and multiple viral hits. The workflow now powers an internal marketing branch as a reusable content engine.
+The pipeline delivers many clips per day with consistent formatting.
+Scheduled posts reached millions of impressions and now supply an internal
+marketing backlog.
 
 ![Views](docs/media/views.png)
 
 
 Features
 --------
-- Pulls hot/top posts for configured subreddits (`src/meme_generator.py`).
-- Screens downloads with a TensorFlow NSFW classifier plus OCR-based bad-word detection.
-- Builds 9:16 edits with optional overlays, LUTs, particles, emoji layers, and a configurable watermark.
-- Writes renders to `output/<date>/rendered/`, ready for upload.
+- Pulls hot or top posts for configured subreddits (`src/meme_generator.py`).
+- Screens media with a TensorFlow NSFW model and OCR profanity filter.
+- Builds 9:16 edits with overlays, LUTs, particles, emoji layers, and a watermark.
+- Writes renders to `output/<date>/rendered/` for upload.
 
 Customization
 -------------
-All layers -- backgrounds, overlays, LUTs, emoji, audio beds, and watermarks -- are user-supplied. Swap branding kits, typography, or animation packs in `assets/` to tailor the output for any campaign or company style guide.
+All creative assets live under `assets/`. Replace fonts, overlays, LUTs,
+emoji, audio beds, or watermarks to match your brand kit. The script uses
+whatever files you supply.
 
 Large Assets & LFS
 ------------------
-Binary media (`*.mp4`, `*.mov`, `*.mp3`) is tracked through Git LFS so you
-can safely keep huge renders out of regular Git history. The `assets/`
-subfolders themselves only contain `.gitkeep` placeholders; drop your own
-media locally before running the generator.
+Binary media (`*.mp4`, `*.mov`, `*.mp3`) is tracked with Git LFS to keep the
+main history small. The repo only stores `.gitkeep` placeholders, so place
+your own media locally before running the generator.
 
 Quick Start
 -----------
 1. `pip install -r requirements.txt`
-2. Copy `.env.example` -> `.env`, add Reddit credentials, and point to FFmpeg/ImageMagick/Tesseract if needed.
-   - Drop `assets/models/nsfw.299x299.h5` in place or provide a working `NSFW_MODEL_URL`. The script falls back to `https://storage.googleapis.com/nsfw_model/nsfw.299x299.h5` if your value fails.
-3. Populate the folders under `assets/` with your own media (see `assets/README.md` for guidance).
+2. Copy `.env.example` → `.env`, add Reddit API values, and set paths for FFmpeg, ImageMagick, and Tesseract if needed.
+   - Download `assets/models/nsfw.299x299.h5` or set `NSFW_MODEL_URL`. Default fallback is `https://storage.googleapis.com/nsfw_model/nsfw.299x299.h5`.
+3. Populate the folders in `assets/` with your media (see `assets/README.md`).
 4. Run `python src/meme_generator.py`.
 
 Credits
 -------
 **Project Lead**
-- Artie Hinz – [GitHub](https://github.com/artiehinz) · [artiehinz.com](https://artiehinz.com/)
+- Artie Hinz - [GitHub](https://github.com/artiehinz) · [artiehinz.com](https://artiehinz.com/)
 
 **Open Source Toolkit**
 - TensorFlow & TensorFlow Hub (NSFW classifier)
 - MoviePy & ffmpeg-python (video composition)
-- OpenCV (video frame sampling)
+- OpenCV (frame sampling)
 - Pillow (image processing)
 - pytesseract (OCR)
-- Requests (remote fetches)
+- Requests (HTTP fetching)
 - PRAW (Reddit API client)
 
-All heavy assets stay local; only placeholders are tracked in Git. Customize the script as needed and rerun to generate fresh clips.
+All heavy assets remain local; only docs and placeholders are versioned.
+Add your media, run the script, and upload the rendered clips.
