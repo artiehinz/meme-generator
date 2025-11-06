@@ -2,8 +2,10 @@ Meme Generator
 ==============
 
 Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
-The script collects Reddit threads, extracts text and images, then lays out
+The script gathers Reddit threads, extracts text, images, and videos, then lays out
 captions, avatars, subtitles, and motion layers for a finished Instagram Reel or TikTok.
+Rendering one clip takes about two seconds on a modern workstation, so large batches of
+Reddit-proven content can be produced quickly.
 
 ![input-to-rendered](docs/media/input-to-rendered.gif)
 [Original Reddit Post](https://www.reddit.com/r/teenagers/comments/1e642tw/what_the_states_look_to_me_as_german/)
@@ -48,8 +50,8 @@ your own media locally before running the generator.
 Quick Start
 -----------
 1. `pip install -r requirements.txt`
-2. Copy `.env.example` → `.env`, add Reddit API values, and set paths for FFmpeg, ImageMagick, and Tesseract if needed.
-   - Download `assets/models/nsfw.299x299.h5` or set `NSFW_MODEL_URL`. Default fallback is `https://storage.googleapis.com/nsfw_model/nsfw.299x299.h5`.
+2. Copy `.env.example` -> `.env`, add Reddit API values, and set paths for FFmpeg, ImageMagick, and Tesseract if needed.
+   - Download `assets/models/nsfw.299x299.h5` or set `NSFW_MODEL_URL` (defaults to `https://storage.googleapis.com/nsfw_model/nsfw.299x299.h5`).
 3. Populate the folders in `assets/` with your media (see `assets/README.md`).
 4. Run `python src/meme_generator.py`.
 
