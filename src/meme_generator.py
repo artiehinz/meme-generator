@@ -101,13 +101,26 @@ BADWORDS_FILE = ASSETS_DIR / "badwords.txt"
 FONT_PATH = ASSETS_DIR / "fonts" / "Roboto-Black.ttf"
 
 _FONT_WARNING_LOGGED = False
+_FONT_AVAILABLE_CACHE = None
 WINDOWS_DEFAULT_FONT = Path(os.getenv("SYSTEMROOT", r"C:\Windows")) / "Fonts" / "Arial.ttf"
 
 
 def _font_available() -> bool:
+    global _FONT_AVAILABLE_CACHE
+    if _FONT_AVAILABLE_CACHE is not None:
+        return _FONT_AVAILABLE_CACHE
     try:
-        return FONT_PATH.exists() and FONT_PATH.stat().st_size > 0
+        if FONT_PATH.exists() and FONT_PATH.stat().st_size > 0:
+            try:
+                ImageFont.truetype(str(FONT_PATH), 12)
+                _FONT_AVAILABLE_CACHE = True
+                return True
+            except OSError:
+                pass
+        _FONT_AVAILABLE_CACHE = False
+        return False
     except OSError:
+        _FONT_AVAILABLE_CACHE = False
         return False
 
 
@@ -154,14 +167,19 @@ def resolve_pillow_font(size: int) -> ImageFont.FreeTypeFont:
 
 def apply_drawtext(node, **kwargs):
     args = dict(kwargs)
+
+    def set_fontfile(font_candidate):
+        if font_candidate:
+            args.setdefault("fontfile", ffmpeg_path(font_candidate))
+
     if _font_available():
-        args.setdefault("fontfile", str(FONT_PATH))
+        set_fontfile(FONT_PATH)
     else:
         fallback_font = os.getenv("DEFAULT_SYSTEM_FONT")
         if fallback_font and Path(fallback_font).exists():
-            args.setdefault("fontfile", fallback_font)
+            set_fontfile(Path(fallback_font))
         elif WINDOWS_DEFAULT_FONT.exists():
-            args.setdefault("fontfile", str(WINDOWS_DEFAULT_FONT))
+            set_fontfile(WINDOWS_DEFAULT_FONT)
         else:
             args.pop("fontfile", None)
         _font_warning()
@@ -596,7 +614,7 @@ def verify_and_convert_image(file_path):
         return None
 
 #############################
-# VIDEO CONVERSION FUNCTIONS (Portrait & Square)
+# VIDEO CONVERSION FUNCTIONS
 #############################
 
 def convert_image_to_video_ffmpeg(image_path, output_path, title, video_index, watermark_text, duration=DEFAULT_DURATION, fade_frames=45):
@@ -852,251 +870,6 @@ def convert_video_to_video_ffmpeg(video_path, output_path, title, video_index, w
         if os.path.exists(f):
             os.remove(f)
 
-def convert_image_to_video_ffmpeg_square(image_path, output_path, title, video_index, watermark_text, duration=DEFAULT_DURATION, fade_frames=45):
-    title = process_title(title)
-    verified_png = verify_and_convert_image(image_path)
-    if not verified_png:
-        print("[ERROR] Image verification failed (square); skipping.")
-        return
-    if is_nsfw_keras(verified_png, nsfw_model):
-        print(f"[INFO] NSFW content detected in {verified_png} (square). Skipping video creation.")
-        banned_path = BANNED_NSFW_FOLDER / Path(verified_png).name
-        shutil.move(verified_png, banned_path)
-        return
-    bad_words = load_bad_words()
-    if image_contains_bad_words(verified_png, bad_words):
-        print(f"[INFO] Banned words detected in {verified_png} (square). Censoring them.")
-        censored_img = censor_bad_words(verified_png, bad_words, cover_fraction=0.3, min_cover=20)
-        censored_img.save(verified_png)
-    lut_files = [f for f in os.listdir(str(LUT_FOLDER)) if f.lower().endswith(".cube")]
-    lut_file = ffmpeg_path(LUT_FOLDER / random.choice(lut_files)) if lut_files else None
-    overlay_text = None if contains_emoji(title) else title
-    selected_audio = None
-    audio_files = sorted([AUDIO_FOLDER / f for f in os.listdir(str(AUDIO_FOLDER)) if f.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a'))])
-    if audio_files:
-        selected_audio = random.choice(audio_files)
-        try:
-            from moviepy.audio.io.AudioFileClip import AudioFileClip
-            aud_clip = AudioFileClip(str(selected_audio))
-            duration = min(aud_clip.duration, 30)
-            aud_clip.close()
-        except Exception as e:
-            print(f"[WARN] Failed to get audio duration (square); using fallback {DEFAULT_DURATION}s: {e}")
-            duration = DEFAULT_DURATION
-    else:
-        duration = DEFAULT_DURATION
-    fade_duration = fade_frames / FPS
-
-    # Use background clip for square videos (1080x1080)
-    base = get_background_clip((1080, 1080), duration)
-    if base is None:
-        return
-
-    border = 20
-    target_inner_size = 1080 - 2 * border
-    with Image.open(verified_png) as im:
-        orig_w, orig_h = im.size
-    scale_factor = min(target_inner_size / orig_w, target_inner_size / orig_h)
-    scaled_width = int(orig_w * scale_factor)
-    scaled_height = int(orig_h * scale_factor)
-    pad_left = int(round((1080 - scaled_width) / 2.0))
-    pad_top = int(round((1080 - scaled_height) / 2.0))
-    img = ffmpeg.input(verified_png, loop=1, t=duration)
-    if lut_file:
-        img = img.filter('lut3d', file=lut_file).filter('format', 'rgba')
-        print(f"[INFO] Applied LUT filter with: {lut_file}")
-    img = img.filter('zoompan',
-                     z="if(lte(on,100),0.8+0.2*((1-cos(3.14159265*on/100))/2),1)",
-                     d=1, fps=FPS, s=f"{scaled_width}x{scaled_height}")
-    img = img.filter('pad', '1080', '1080', str(pad_left), str(pad_top), color='0x00000000')
-    img = img.filter('fade', type='in', start_time=0, duration=fade_duration)
-    composite = ffmpeg.overlay(base, img, x='0', y='60')
-    composite = apply_drawtext(
-        composite,
-        text=watermark_text,
-        fontsize=20,
-        fontcolor='white@0.2',
-        borderw=1,
-        bordercolor='black@0.2',
-        x='(w-text_w)/2',
-        y='h-text_h-15'
-    )
-    composite = composite.filter('fade', type='in', start_time=0, duration=fade_duration)
-    if PARTICLES_VIDEO_PATH.exists():
-        particles = ffmpeg.input(str(PARTICLES_VIDEO_PATH), t=duration).filter('scale', '1080', '1080')
-        composite = ffmpeg.filter([particles, composite.filter('format', 'gbrp')], 'blend', all_mode='addition').filter('format', 'yuv420p')
-    if COLOR_FRAME_ANIMATION_PATH.exists():
-        color_anim = ffmpeg.input(str(COLOR_FRAME_ANIMATION_PATH), t=duration).filter('scale', '1080', '1080')
-        composite = ffmpeg.filter([color_anim, composite.filter('format', 'gbrp')], 'blend', all_mode='addition').filter('format', 'yuv420p')
-    emoji_overlay = get_random_emoji_overlay(duration, 1080, 1080)
-    if emoji_overlay:
-        emoji_input, params = emoji_overlay
-        composite = ffmpeg.overlay(composite, emoji_input, **params)
-    if overlay_text:
-        chosen_font_size = 55
-        overlay_text = break_text_by_width(overlay_text, FONT_PATH, chosen_font_size, (1080 - 2*border))
-        lines = overlay_text.split("\n")
-        block_height = chosen_font_size * len(lines) + 20 * (len(lines) - 1)
-        title_y = max(0, 60 - block_height - 20)
-        composite = apply_drawtext(
-            composite,
-            text=overlay_text,
-            fontsize=str(chosen_font_size),
-            fontcolor='white',
-            borderw=2,
-            bordercolor='black',
-            shadowx=4,
-            shadowy=4,
-            shadowcolor='black@0.9',
-            line_spacing=10,
-            x='(w-text_w)/2',
-            y=str(title_y)
-        )
-    composite = composite.filter('trim', duration=duration).filter('setpts', 'PTS-STARTPTS')
-    if selected_audio:
-        audio_in = ffmpeg.input(str(selected_audio), t=duration)
-        audio_in = audio_in.filter_('asetrate', '44100*0.95').filter_('atempo', '1.01').filter_('aresample', '44100')
-        out = ffmpeg.output(composite, audio_in, str(output_path), vcodec=HARDWARE_CODEC, acodec='aac', r=FPS,
-                            preset='fast', crf='28', pix_fmt='yuv420p', **{'metadata:s:v:0': 'rotate=0'})
-    else:
-        out = ffmpeg.output(composite, str(output_path), vcodec=HARDWARE_CODEC, r=FPS,
-                            preset='fast', crf='28', pix_fmt='yuv420p', **{'metadata:s:v:0': 'rotate=0'})
-    ffmpeg.run(out, overwrite_output=True)
-    print(f"[INFO] Converted image to square video: {output_path}")
-
-def convert_video_to_video_ffmpeg_square(video_path, output_path, title, video_index, watermark_text, fade_frames=45):
-    title = process_title(title)
-    cap = cv2.VideoCapture(str(video_path))
-    temp_frames = []
-    frame_number = 0
-    skip_video = False
-    first_frame = None
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if frame_number % 24 == 0:
-            temp_file = str(video_path) + f"_frame_{frame_number}.png"
-            cv2.imwrite(temp_file, frame)
-            temp_frames.append(temp_file)
-            if first_frame is None:
-                first_frame = frame
-            if is_nsfw_keras(temp_file, nsfw_model) or image_contains_bad_words(temp_file, load_bad_words()):
-                skip_video = True
-                break
-        frame_number += 1
-    cap.release()
-    if skip_video:
-        for f in temp_frames:
-            if os.path.exists(f):
-                os.remove(f)
-        print("[INFO] Video skipped (square) due to NSFW or banned words in snapshots.")
-        return
-    if first_frame is None:
-        print("[ERROR] No frames extracted from video (square).")
-        return
-    orig_h, orig_w = first_frame.shape[:2]
-    border = 20
-    target_inner_size = 1080 - 2 * border
-    scale_factor = min(target_inner_size / orig_w, target_inner_size / orig_h)
-    scaled_width = int(orig_w * scale_factor)
-    scaled_height = int(orig_h * scale_factor)
-    pad_left = int(round((1080 - scaled_width) / 2.0))
-    pad_top = int(round((1080 - scaled_height) / 2.0))
-    try:
-        probe = ffmpeg.probe(str(video_path))
-        duration = float(probe["format"]["duration"])
-        if duration > 15:
-            print(f"[INFO] Video duration {duration:.2f} exceeds 15 seconds (square). Skipping video {video_path}.")
-            for f in temp_frames:
-                if os.path.exists(f):
-                    os.remove(f)
-            return
-    except Exception as e:
-        print(f"[WARN] Could not determine video duration for square video, using fallback {DEFAULT_DURATION}s: {e}")
-        duration = DEFAULT_DURATION
-    fade_duration = fade_frames / FPS
-
-    # Use background clip for square (1080x1080)
-    base = get_background_clip((1080, 1080), duration)
-    if base is None:
-        return
-
-    vid = ffmpeg.input(str(video_path), ss=0, t=duration)
-    vid = vid.filter('scale', str(scaled_width), str(scaled_height))
-    vid = vid.filter('pad', '1080', '1080', str(pad_left), str(pad_top), color='0x00000000')
-    vid = vid.filter('fade', type='in', start_time=0, duration=fade_duration)
-    composite = ffmpeg.overlay(base, vid, x='0', y='60')
-    composite = apply_drawtext(
-        composite,
-        text=watermark_text,
-        fontsize=25,
-        fontcolor='white@0.2',
-        borderw=1,
-        bordercolor='black@0.3',
-        x='(w-text_w)/2',
-        y='h-text_h-15'
-    )
-    composite = composite.filter('fade', type='in', start_time=0, duration=fade_duration)
-    if PARTICLES_VIDEO_PATH.exists():
-        particles = ffmpeg.input(str(PARTICLES_VIDEO_PATH), t=duration).filter('scale', '1080', '1080')
-        composite = ffmpeg.filter([particles, composite.filter('format', 'gbrp')], 'blend', all_mode='addition').filter('format', 'yuv420p')
-    if COLOR_FRAME_ANIMATION_PATH.exists():
-        color_anim = ffmpeg.input(str(COLOR_FRAME_ANIMATION_PATH), t=duration).filter('scale', '1080', '1080')
-        composite = ffmpeg.filter([color_anim, composite.filter('format', 'gbrp')], 'blend', all_mode='addition').filter('format', 'yuv420p')
-    emoji_overlay = get_random_emoji_overlay(duration, 1080, 1080)
-    if emoji_overlay:
-        emoji_input, params = emoji_overlay
-        composite = ffmpeg.overlay(composite, emoji_input, **params)
-    if title and not contains_emoji(title):
-        composite = apply_drawtext(
-            composite,
-            text=break_text_by_width(title, FONT_PATH, 55, (1088 - 2*border)),
-            fontsize='55',
-            fontcolor='white',
-            borderw=2,
-            bordercolor='black',
-            shadowx=4,
-            shadowy=4,
-            shadowcolor='black@0.9',
-            line_spacing=20,
-            x='(w-text_w)/2',
-            y='40 - text_h'
-        )
-    composite = composite.filter('trim', duration=duration).filter('setpts', 'PTS-STARTPTS')
-    selected_audio = None
-    video_audio_files = sorted([VIDEO_AUDIO_FOLDER / f for f in os.listdir(str(VIDEO_AUDIO_FOLDER)) if f.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a'))])
-    if video_audio_files:
-        selected_audio = random.choice(video_audio_files)
-        audio_in = ffmpeg.input(str(selected_audio), t=duration)
-        audio_in = audio_in.filter_('asetrate', '44100*0.95').filter_('atempo', '1.01').filter_('aresample', '44100')
-        out = ffmpeg.output(composite, audio_in, str(output_path), vcodec=HARDWARE_CODEC, acodec='aac', r=FPS,
-                            preset='fast', crf='28', pix_fmt='yuv420p', **{'metadata:s:v:0': 'rotate=0'})
-    else:
-        out = ffmpeg.output(composite, str(output_path), vcodec=HARDWARE_CODEC, r=FPS,
-                            preset='fast', crf='28', pix_fmt='yuv420p', **{'metadata:s:v:0': 'rotate=0'})
-    ffmpeg.run(out, overwrite_output=True)
-    print(f"[INFO] Processed square video saved: {output_path}")
-    for f in temp_frames:
-        if os.path.exists(f):
-            os.remove(f)
-
-def reencode_square_video(input_path, output_path):
-    if not os.path.exists(input_path):
-        print(f"[ERROR] Input file {input_path} does not exist. Skipping re-encoding.")
-        return
-    stream = ffmpeg.input(str(input_path))
-    video = stream.video.filter('scale', 1080, 1080).filter('setdar', '1')
-    audio = stream.audio
-    out = ffmpeg.output(video, audio, str(output_path), vcodec=HARDWARE_CODEC, acodec='aac', r=FPS,
-                        preset='slow', crf='18', pix_fmt='yuv420p', **{'metadata:s:v:0': 'rotate=0'})
-    ffmpeg.run(out, overwrite_output=True)
-    print(f"[INFO] Re-encoded square video (H264) saved: {output_path}")
-
-#############################
-# MAIN PROCESSING LOOPS
-#############################
-
 def process_reddit_images():
     if reddit is None:
         print("[INFO] Reddit client unavailable; skipping Reddit image processing.")
@@ -1131,19 +904,6 @@ def process_reddit_images():
                     if not out_path.exists():
                         convert_image_to_video_ffmpeg(img_path, str(out_path), post.title, video_counter, chosen_watermark)
                         video_counter += 1
-                    square_folder = out_folder / "square"
-                    square_folder.mkdir(exist_ok=True)
-                    square_out_path = square_folder / f"{post.id}_hot_square.mp4"
-                    if not square_out_path.exists():
-                        convert_image_to_video_ffmpeg_square(img_path, str(square_out_path), post.title, video_counter, chosen_watermark)
-                        video_counter += 1
-                    h264_folder = square_folder / "h264"
-                    h264_folder.mkdir(exist_ok=True)
-                    h264_out_path = h264_folder / f"{post.id}_hot_square_h264.mp4"
-                    if square_out_path.exists():
-                        reencode_square_video(str(square_out_path), str(h264_out_path))
-                    else:
-                        print(f"[ERROR] Square video {square_out_path} not found; skipping H264 re-encoding.")
 
     for subreddit in subreddits:
         for post in reddit.subreddit(subreddit).top(time_filter="month", limit=3):
@@ -1174,19 +934,6 @@ def process_reddit_images():
                     if not out_path.exists():
                         convert_image_to_video_ffmpeg(img_path, str(out_path), post.title, video_counter, chosen_watermark)
                         video_counter += 1
-                    square_folder = out_folder / "square"
-                    square_folder.mkdir(exist_ok=True)
-                    square_out_path = square_folder / f"{post.id}_month_square.mp4"
-                    if not square_out_path.exists():
-                        convert_image_to_video_ffmpeg_square(img_path, str(square_out_path), post.title, video_counter, chosen_watermark)
-                        video_counter += 1
-                    h264_folder = square_folder / "h264"
-                    h264_folder.mkdir(exist_ok=True)
-                    h264_out_path = h264_folder / f"{post.id}_month_square_h264.mp4"
-                    if square_out_path.exists():
-                        reencode_square_video(str(square_out_path), str(h264_out_path))
-                    else:
-                        print(f"[ERROR] Square video {square_out_path} not found; skipping H264 re-encoding.")
 
 def process_reddit_videos():
     if reddit is None:
@@ -1222,19 +969,6 @@ def process_reddit_videos():
                     if not out_path.exists():
                         convert_video_to_video_ffmpeg(vid_path, str(out_path), post.title, video_counter, chosen_watermark)
                         video_counter += 1
-                    square_folder = out_folder / "square"
-                    square_folder.mkdir(exist_ok=True)
-                    square_out_path = square_folder / f"{post.id}_hot_square.mp4"
-                    if not square_out_path.exists():
-                        convert_video_to_video_ffmpeg_square(vid_path, str(square_out_path), post.title, video_counter, chosen_watermark)
-                        video_counter += 1
-                    h264_folder = square_folder / "h264"
-                    h264_folder.mkdir(exist_ok=True)
-                    h264_out_path = h264_folder / f"{post.id}_hot_square_h264.mp4"
-                    if square_out_path.exists():
-                        reencode_square_video(str(square_out_path), str(h264_out_path))
-                    else:
-                        print(f"[ERROR] Square video {square_out_path} not found; skipping H264 re-encoding.")
 
     for subreddit in subreddits:
         for post in reddit.subreddit(subreddit).top(time_filter="month", limit=3):
@@ -1265,41 +999,6 @@ def process_reddit_videos():
                     if not out_path.exists():
                         convert_video_to_video_ffmpeg(vid_path, str(out_path), post.title, video_counter, chosen_watermark)
                         video_counter += 1
-                    square_folder = out_folder / "square"
-                    square_folder.mkdir(exist_ok=True)
-                    square_out_path = square_folder / f"{post.id}_month_square.mp4"
-                    if not square_out_path.exists():
-                        convert_video_to_video_ffmpeg_square(vid_path, str(square_out_path), post.title, video_counter, chosen_watermark)
-                        video_counter += 1
-                    h264_folder = square_folder / "h264"
-                    h264_folder.mkdir(exist_ok=True)
-                    h264_out_path = h264_folder / f"{post.id}_month_square_h264.mp4"
-                    if square_out_path.exists():
-                        reencode_square_video(str(square_out_path), str(h264_out_path))
-                    else:
-                        print(f"[ERROR] Square video {square_out_path} not found; skipping H264 re-encoding.")
-
-def cleanup_square_folders():
-    square_folder = variant_folder / "square"
-    h264_folder = square_folder / "h264"
-    if square_folder.is_dir():
-        for item in os.listdir(str(square_folder)):
-            full_path = square_folder / item
-            if full_path.is_file():
-                os.remove(full_path)
-                print(f"[CLEANUP] Deleted file: {full_path}")
-            elif full_path.is_dir() and full_path.name != "h264":
-                shutil.rmtree(full_path)
-                print(f"[CLEANUP] Deleted directory: {full_path}")
-        if h264_folder.is_dir():
-            for item in os.listdir(str(h264_folder)):
-                src = h264_folder / item
-                dest = square_folder / item
-                shutil.move(str(src), str(dest))
-                print(f"[CLEANUP] Moved {src} to {dest}")
-            if not os.listdir(str(h264_folder)):
-                os.rmdir(str(h264_folder))
-                print(f"[CLEANUP] Deleted empty h264 folder: {h264_folder}")
 
 #############################
 # MAIN EXECUTION
@@ -1312,8 +1011,5 @@ def main():
     print("[INFO] Starting video processing...")
     process_reddit_videos()
     print("[INFO] Video processing complete.")
-    cleanup_square_folders()
-    print("[INFO] Cleanup complete.")
-
 if __name__ == "__main__":
     main()
