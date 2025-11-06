@@ -99,6 +99,49 @@ PICTURE_BG_FOLDER = ASSETS_DIR / "backgrounds_image"
 DISTRACTION_FOLDER = ASSETS_DIR / "distractions"
 BADWORDS_FILE = ASSETS_DIR / "badwords.txt"
 FONT_PATH = ASSETS_DIR / "fonts" / "Roboto-Black.ttf"
+
+_FONT_WARNING_LOGGED = False
+
+
+def _font_available() -> bool:
+    try:
+        return FONT_PATH.exists() and FONT_PATH.stat().st_size > 0
+    except OSError:
+        return False
+
+
+def _font_warning():
+    global _FONT_WARNING_LOGGED
+    if not _FONT_WARNING_LOGGED:
+        print(f"[WARN] Custom font not found or unreadable at {FONT_PATH}; falling back to defaults.")
+        _FONT_WARNING_LOGGED = True
+
+
+def resolve_moviepy_font() -> str:
+    if _font_available():
+        return str(FONT_PATH)
+    _font_warning()
+    return "Arial-Bold"
+
+
+def resolve_pillow_font(size: int) -> ImageFont.FreeTypeFont:
+    if _font_available():
+        try:
+            return ImageFont.truetype(str(FONT_PATH), size)
+        except OSError:
+            pass
+    _font_warning()
+    return ImageFont.load_default()
+
+
+def apply_drawtext(node, **kwargs):
+    args = dict(kwargs)
+    if _font_available():
+        args.setdefault("fontfile", str(FONT_PATH))
+    else:
+        args.pop("fontfile", None)
+        _font_warning()
+    return node.filter("drawtext", **args)
 NSFW_MODEL_PATH = ASSETS_DIR / "models" / "nsfw.299x299.h5"
 PARTICLES_VIDEO_PATH = ASSETS_DIR / "particles" / "particles2.mp4"
 COLOR_FRAME_ANIMATION_PATH = ASSETS_DIR / "particles" / "color_frame_animation.mp4"
@@ -238,7 +281,7 @@ def contains_emoji(text):
 def break_text_by_width(text, font_path, font_size, max_width):
     dummy_img = Image.new("RGB", (2000, 2000))
     draw = ImageDraw.Draw(dummy_img)
-    font = ImageFont.truetype(font_path, font_size)
+    font = resolve_pillow_font(font_size)
     words = text.split()
     lines = []
     current_line = ""
@@ -384,17 +427,19 @@ def process_title(title):
 # OVERLAY & COMPOSITION HELPERS
 #############################
 
-def add_static_text_overlay(clip, text, pos=("center", "bottom"), fontsize=55, font=FONT_PATH, color="white"):
+def add_static_text_overlay(clip, text, pos=("center", "bottom"), fontsize=55, font=None, color="white"):
     if not text.strip():
         return clip
-    txt_img = TextClip(text, fontsize=fontsize, font=font, color=color).get_frame(0)
+    resolved_font = font if font else resolve_moviepy_font()
+    txt_img = TextClip(text, fontsize=fontsize, font=resolved_font, color=color).get_frame(0)
     txt_clip = ImageClip(txt_img).set_duration(clip.duration).set_pos(pos)
     return CompositeVideoClip([clip, txt_clip])
 
-def add_watermark(clip, watermark_text="", pos=("center", "top"), fontsize=40, font=FONT_PATH):
+def add_watermark(clip, watermark_text="", pos=("center", "top"), fontsize=40, font=None):
     if not watermark_text:
         return clip
-    wm_img = TextClip(watermark_text, fontsize=fontsize, font=font, color="white", stroke_color="black", stroke_width=1).get_frame(0)
+    resolved_font = font if font else resolve_moviepy_font()
+    wm_img = TextClip(watermark_text, fontsize=fontsize, font=resolved_font, color="white", stroke_color="black", stroke_width=1).get_frame(0)
     wm_clip = ImageClip(wm_img).set_duration(clip.duration).set_pos(pos).set_opacity(0.2)
     return CompositeVideoClip([clip, wm_clip])
 
@@ -594,8 +639,16 @@ def convert_image_to_video_ffmpeg(image_path, output_path, title, video_index, w
     img = img.filter('pad', '1088', '1920', str(pad_left), str(pad_top), color='0x00000000')
     img = img.filter('format', 'rgba').filter('fade', type='in', start_time=0, duration=fade_duration)
     composite = ffmpeg.overlay(base, img, x='0', y='30')
-    composite = composite.filter('drawtext', fontfile=FONT_PATH, text=watermark_text, fontsize=40,
-                                 fontcolor='white@0.2', borderw=1, bordercolor='black@0.2', x='(w-text_w)/2', y='h-text_h-35')
+    composite = apply_drawtext(
+        composite,
+        text=watermark_text,
+        fontsize=40,
+        fontcolor='white@0.2',
+        borderw=1,
+        bordercolor='black@0.2',
+        x='(w-text_w)/2',
+        y='h-text_h-35'
+    )
     if video_index % 3 == 0:
         overlay_mov_files = sorted([ffmpeg_path(OVERLAY_MOV_FOLDER / f) for f in os.listdir(str(OVERLAY_MOV_FOLDER)) if f.lower().endswith(".mov")])
         if overlay_mov_files:
@@ -619,9 +672,20 @@ def convert_image_to_video_ffmpeg(image_path, output_path, title, video_index, w
         lines = overlay_text.split("\n")
         block_height = chosen_font_size * len(lines) + 20 * (len(lines) - 1)
         title_y = max(0, pad_top - block_height - 20)
-        composite = composite.filter('drawtext', fontfile=FONT_PATH, text=overlay_text, fontsize=str(chosen_font_size),
-                                     fontcolor='white', borderw=2, bordercolor='black', shadowx=4, shadowy=4,
-                                     shadowcolor='black@0.9', line_spacing=10, x='(w-text_w)/2', y=str(title_y))
+        composite = apply_drawtext(
+            composite,
+            text=overlay_text,
+            fontsize=str(chosen_font_size),
+            fontcolor='white',
+            borderw=2,
+            bordercolor='black',
+            shadowx=4,
+            shadowy=4,
+            shadowcolor='black@0.9',
+            line_spacing=10,
+            x='(w-text_w)/2',
+            y=str(title_y)
+        )
     composite = composite.filter('trim', duration=duration).filter('setpts', 'PTS-STARTPTS')
     if selected_audio:
         audio_in = ffmpeg.input(str(selected_audio), t=duration)
@@ -701,8 +765,16 @@ def convert_video_to_video_ffmpeg(video_path, output_path, title, video_index, w
     vid = vid.filter('pad', '1088', '1920', str(pad_left), str(pad_top), color='0x00000000')
     vid = vid.filter('fade', type='in', start_time=0, duration=fade_duration)
     composite = ffmpeg.overlay(base, vid, x='0', y='30')
-    composite = composite.filter('drawtext', fontfile=FONT_PATH, text=watermark_text, fontsize=45,
-                                 fontcolor='white@0.2', borderw=1, bordercolor='black@0.3', x='(w-text_w)/2', y='h-text_h-35')
+    composite = apply_drawtext(
+        composite,
+        text=watermark_text,
+        fontsize=45,
+        fontcolor='white@0.2',
+        borderw=1,
+        bordercolor='black@0.3',
+        x='(w-text_w)/2',
+        y='h-text_h-35'
+    )
     if video_index % 6 == 0:
         overlay_mov_files = sorted([ffmpeg_path(OVERLAY_MOV_FOLDER / f) for f in os.listdir(str(OVERLAY_MOV_FOLDER)) if f.lower().endswith(".mov")])
         if overlay_mov_files:
@@ -721,11 +793,20 @@ def convert_video_to_video_ffmpeg(video_path, output_path, title, video_index, w
         emoji_input, params = emoji_overlay
         composite = ffmpeg.overlay(composite, emoji_input, **params)
     if title and not contains_emoji(title):
-        composite = composite.filter('drawtext', fontfile=FONT_PATH,
-                                     text=break_text_by_width(title, FONT_PATH, 55, (1088 - 2*border)),
-                                     fontsize='55', fontcolor='white', borderw=2, bordercolor='black',
-                                     shadowx=4, shadowy=4, shadowcolor='black@0.9', line_spacing=20,
-                                     x='(w-text_w)/2', y='10 - text_h')
+        composite = apply_drawtext(
+            composite,
+            text=break_text_by_width(title, FONT_PATH, 55, (1088 - 2*border)),
+            fontsize='55',
+            fontcolor='white',
+            borderw=2,
+            bordercolor='black',
+            shadowx=4,
+            shadowy=4,
+            shadowcolor='black@0.9',
+            line_spacing=20,
+            x='(w-text_w)/2',
+            y='10 - text_h'
+        )
     if duration > 15:
         banner_mov = BANNER_FOLDER / "banner.mov"
         if banner_mov.exists():
@@ -806,9 +887,16 @@ def convert_image_to_video_ffmpeg_square(image_path, output_path, title, video_i
     img = img.filter('pad', '1080', '1080', str(pad_left), str(pad_top), color='0x00000000')
     img = img.filter('fade', type='in', start_time=0, duration=fade_duration)
     composite = ffmpeg.overlay(base, img, x='0', y='60')
-    composite = composite.filter('drawtext', fontfile=FONT_PATH, text=watermark_text, fontsize=20,
-                                 fontcolor='white@0.2', borderw=1, bordercolor='black@0.2',
-                                 x='(w-text_w)/2', y='h-text_h-15')
+    composite = apply_drawtext(
+        composite,
+        text=watermark_text,
+        fontsize=20,
+        fontcolor='white@0.2',
+        borderw=1,
+        bordercolor='black@0.2',
+        x='(w-text_w)/2',
+        y='h-text_h-15'
+    )
     composite = composite.filter('fade', type='in', start_time=0, duration=fade_duration)
     if PARTICLES_VIDEO_PATH.exists():
         particles = ffmpeg.input(str(PARTICLES_VIDEO_PATH), t=duration).filter('scale', '1080', '1080')
@@ -826,10 +914,20 @@ def convert_image_to_video_ffmpeg_square(image_path, output_path, title, video_i
         lines = overlay_text.split("\n")
         block_height = chosen_font_size * len(lines) + 20 * (len(lines) - 1)
         title_y = max(0, 60 - block_height - 20)
-        composite = composite.filter('drawtext', fontfile=FONT_PATH, text=overlay_text, fontsize=str(chosen_font_size),
-                                     fontcolor='white', borderw=2, bordercolor='black',
-                                     shadowx=4, shadowy=4, shadowcolor='black@0.9', line_spacing=10,
-                                     x='(w-text_w)/2', y=str(title_y))
+        composite = apply_drawtext(
+            composite,
+            text=overlay_text,
+            fontsize=str(chosen_font_size),
+            fontcolor='white',
+            borderw=2,
+            bordercolor='black',
+            shadowx=4,
+            shadowy=4,
+            shadowcolor='black@0.9',
+            line_spacing=10,
+            x='(w-text_w)/2',
+            y=str(title_y)
+        )
     composite = composite.filter('trim', duration=duration).filter('setpts', 'PTS-STARTPTS')
     if selected_audio:
         audio_in = ffmpeg.input(str(selected_audio), t=duration)
@@ -905,9 +1003,16 @@ def convert_video_to_video_ffmpeg_square(video_path, output_path, title, video_i
     vid = vid.filter('pad', '1080', '1080', str(pad_left), str(pad_top), color='0x00000000')
     vid = vid.filter('fade', type='in', start_time=0, duration=fade_duration)
     composite = ffmpeg.overlay(base, vid, x='0', y='60')
-    composite = composite.filter('drawtext', fontfile=FONT_PATH, text=watermark_text, fontsize=25,
-                                 fontcolor='white@0.2', borderw=1, bordercolor='black@0.3',
-                                 x='(w-text_w)/2', y='h-text_h-15')
+    composite = apply_drawtext(
+        composite,
+        text=watermark_text,
+        fontsize=25,
+        fontcolor='white@0.2',
+        borderw=1,
+        bordercolor='black@0.3',
+        x='(w-text_w)/2',
+        y='h-text_h-15'
+    )
     composite = composite.filter('fade', type='in', start_time=0, duration=fade_duration)
     if PARTICLES_VIDEO_PATH.exists():
         particles = ffmpeg.input(str(PARTICLES_VIDEO_PATH), t=duration).filter('scale', '1080', '1080')
@@ -920,11 +1025,20 @@ def convert_video_to_video_ffmpeg_square(video_path, output_path, title, video_i
         emoji_input, params = emoji_overlay
         composite = ffmpeg.overlay(composite, emoji_input, **params)
     if title and not contains_emoji(title):
-        composite = composite.filter('drawtext', fontfile=FONT_PATH,
-                                     text=break_text_by_width(title, FONT_PATH, 55, (1080 - 2*border)),
-                                     fontsize='55', fontcolor='white', borderw=2, bordercolor='black',
-                                     shadowx=4, shadowy=4, shadowcolor='black@0.9', line_spacing=20,
-                                     x='(w-text_w)/2', y='40 - text_h')
+        composite = apply_drawtext(
+            composite,
+            text=break_text_by_width(title, FONT_PATH, 55, (1088 - 2*border)),
+            fontsize='55',
+            fontcolor='white',
+            borderw=2,
+            bordercolor='black',
+            shadowx=4,
+            shadowy=4,
+            shadowcolor='black@0.9',
+            line_spacing=20,
+            x='(w-text_w)/2',
+            y='40 - text_h'
+        )
     composite = composite.filter('trim', duration=duration).filter('setpts', 'PTS-STARTPTS')
     selected_audio = None
     video_audio_files = sorted([VIDEO_AUDIO_FOLDER / f for f in os.listdir(str(VIDEO_AUDIO_FOLDER)) if f.lower().endswith(('.mp3', '.wav', '.ogg', '.m4a'))])
@@ -1179,62 +1293,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-import os
-import shutil
-import datetime
-import random
-import re
-import string
-import hashlib
-import importlib
-from pathlib import Path
-from typing import Any, Optional
-
-import requests
-import ffmpeg
-from moviepy.editor import CompositeVideoClip, ImageClip, TextClip
-import moviepy.config as mpy_config
-import cv2
-from PIL import Image, ImageDraw, ImageFont
-import pytesseract
-from dotenv import load_dotenv
-
-tf: Optional[Any] = None
-load_model: Optional[Any] = None
-load_img: Optional[Any] = None
-img_to_array: Optional[Any] = None
-KerasLayer: Optional[Any] = None
-
-
-def _try_import_tensorflow() -> None:
-    """Best-effort import of TensorFlow components without hard dependency."""
-    global tf, load_model, load_img, img_to_array, KerasLayer
-
-    try:
-        tf = importlib.import_module("tensorflow")
-    except ModuleNotFoundError:
-        tf = None
-        return
-
-    try:
-        keras_models = importlib.import_module("tensorflow.keras.models")
-        load_model = getattr(keras_models, "load_model", None)
-    except ModuleNotFoundError:
-        load_model = None
-
-    try:
-        preprocessing = importlib.import_module("tensorflow.keras.preprocessing.image")
-        load_img = getattr(preprocessing, "load_img", None)
-        img_to_array = getattr(preprocessing, "img_to_array", None)
-    except ModuleNotFoundError:
-        load_img = None
-        img_to_array = None
-
-    try:
-        hub = importlib.import_module("tensorflow_hub")
-        KerasLayer = getattr(hub, "KerasLayer", None)
-    except ModuleNotFoundError:
-        KerasLayer = None
-
-
-_try_import_tensorflow()
