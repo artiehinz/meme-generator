@@ -3,7 +3,7 @@
 
 Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
 
-![input-to-rendered](https://media.giphy.com/media/3o7btPCcdNniyf0ArS/giphy.gif)
+![input-to-rendered](docs/media/input-to-rendered.gif)
 
 Goal
 ----
@@ -12,7 +12,7 @@ Automate the formatting and rendering of high-performing, publicly available Red
 Results
 -------
 The automation pipeline allowed dozens of clips to be produced per day. Once scheduled, the edits consistently attracted millions of impressions and multiple viral hits. The workflow now powers an internal marketing branch as a reusable content engine.
-![Views](https://cdn.myportfolio.com/4121c236-100b-44b0-8dfb-6c884cb50d6f/c65bb6bd-d1a5-4754-8d42-b25b894b3284_rw_1200.jpg)
+![Views](docs/media/views.png)
 
 Features
 --------
