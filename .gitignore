@@ -1,23 +1,43 @@
-﻿# Python artifacts
-__pycache__/
-*.pyc
+﻿.env
 
-# Local environment
-.env
-
-# Generated media output
 output/
 
-# Asset placeholders (ignore large binaries, keep structure)
 assets/**
-!assets/.gitkeep
-!assets/**/.gitkeep
 !assets/badwords.txt
 !assets/README.md
-!assets/fonts/
-!assets/fonts/.gitkeep
-!assets/fonts/*.ttf
 
-# Editor settings
+!assets/fonts/
+!assets/fonts/**
+
+!assets/audio/
+!assets/audio/audio_1.mp3
+
+!assets/audio_for_video/
+!assets/audio_for_video/audio_1.mp3
+
+!assets/backgrounds_image/
+!assets/backgrounds_image/bg1.jpg
+
+!assets/backgrounds_video/
+!assets/backgrounds_video/bg1.mp4
+
+!assets/banners/
+!assets/banners/banner.mov
+
+!assets/distractions/
+!assets/distractions/pic_2.png
+
+!assets/emoji/
+!assets/emoji/1.png
+
+!assets/luts/
+!assets/luts/lut1.cube
+
+!assets/overlays/
+!assets/overlays/1.mov
+
+!assets/particles/
+!assets/particles/color_frame_animation.mp4
+
 .vscode/
 .idea/
