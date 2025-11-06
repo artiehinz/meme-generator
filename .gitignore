@@ -19,7 +19,7 @@ assets/**
 !assets/backgrounds_image/bg1.jpg
 
 !assets/backgrounds_video/
-!assets/backgrounds_video/bg1.mp4
+!assets/backgrounds_video/bg1_compressed.mp4
 
 !assets/banners/
 !assets/banners/banner.mov
@@ -34,7 +34,7 @@ assets/**
 !assets/luts/lut1.cube
 
 !assets/overlays/
-!assets/overlays/1.mov
+!assets/overlays/1_compressed.mov
 
 !assets/particles/
 !assets/particles/color_frame_animation.mp4
