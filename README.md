@@ -4,6 +4,8 @@
 Automates a Reddit-to-vertical-video workflow tuned for short-form posts.
 
 ![input-to-rendered](docs/media/input-to-rendered.gif)
+https://www.reddit.com/r/teenagers/comments/1e642tw/what_the_states_look_to_me_as_german/ - original Reddit Post 
+https://www.instagram.com/reel/DHEiVjbTS3_ - rendered Instagram Reel
 
 Goal
 ----
@@ -12,7 +14,7 @@ Automate the formatting and rendering of high-performing, publicly available Red
 Results
 -------
 The automation pipeline allowed dozens of clips to be produced per day. Once scheduled, the edits consistently attracted millions of impressions and multiple viral hits. The workflow now powers an internal marketing branch as a reusable content engine.
-![Views](docs/media/views.jpg)
+![Views](docs/media/views.png)
 
 Features
 --------

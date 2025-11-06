@@ -6,6 +6,8 @@ import re
 import string
 import hashlib
 import importlib
+import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any, Optional
 
