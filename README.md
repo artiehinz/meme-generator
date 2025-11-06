@@ -48,6 +48,10 @@ Quick Start
 
 Credits
 -------
+**Project Lead**
+- Artie Hinz – [GitHub](https://github.com/artiehinz) · [artiehinz.com](https://artiehinz.com/)
+
+**Open Source Toolkit**
 - TensorFlow & TensorFlow Hub (NSFW classifier)
 - MoviePy & ffmpeg-python (video composition)
 - OpenCV (video frame sampling)
