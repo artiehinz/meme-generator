@@ -1,5 +1,11 @@
 ﻿.env
 
+__pycache__/
+.venv/
+.pyc
+scr/__pycache__/
+scr/*.pyc
+
 output/
 
 assets/**
