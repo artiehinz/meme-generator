@@ -6,6 +6,10 @@ Automatically turns Reddit threads into vertical short-form videos by collecting
 Rendering one clip takes about two seconds on a modern workstation, so large batches of
 Reddit-proven content can be produced quickly.
 
+
+Examples
+==============
+
 ![input-to-rendered](docs/media/input-to-rendered.gif)
 [Original Reddit Post](https://www.reddit.com/r/teenagers/comments/1e642tw/what_the_states_look_to_me_as_german/)
 -->
@@ -15,6 +19,7 @@ Reddit-proven content can be produced quickly.
 [Original Reddit Post](https://www.reddit.com/r/memes/comments/1k61pjo/thats_how_you_do_a_remaster/)
 -->
 [Rendered Instagram Reel](https://www.instagram.com/reel/DJCfUgDTkKI)
+
 A variety of assets allows you to create content that is unique to Instagram algorithms and avoid automatic blocking.
 More examples in the profile. 
 
