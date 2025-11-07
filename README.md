@@ -11,9 +11,15 @@ Reddit-proven content can be produced quickly.
 -->
 [Rendered Instagram Reel](https://www.instagram.com/reel/DHEiVjbTS3_)
 
+![input-to-rendered](docs/media/input-to-rendered2.gif)
+[Original Reddit Post](https://www.reddit.com/r/memes/comments/1k61pjo/thats_how_you_do_a_remaster/)
+-->
+[Rendered Instagram Reel](https://www.instagram.com/reel/DJCfUgDTkKI)
+A variety of assets allows you to create content that is unique to Instagram algorithms and avoid automatic blocking.
+More examples in the profile. 
 
 Goal
-----
+----  
 Convert successful public Reddit content into Vertical clips with little manual work.
 Each run reads a post, builds the timeline, and exports a file that is ready for Instagram, TikTok, or YouTube Shorts.
 
