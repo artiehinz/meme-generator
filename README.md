@@ -19,9 +19,7 @@ Each run reads a post, builds the timeline, and exports a file that is ready for
 
 Results
 -------
-The pipeline delivers many clips per day with consistent formatting.
-Scheduled posts reached millions of impressions and now supply an internal
-marketing backlog.
+The pipeline delivers many clips per day with consistent formatting. Scheduled posts reached millions of impressions and now supply an internal marketing pipeline.
 
 ![Views](docs/media/views.png)
 
